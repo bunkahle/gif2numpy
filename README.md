@@ -18,14 +18,18 @@ You can use the library this way:
     import cv2
     
     images = "Images/audrey.gif", "Images/hopper.gif", "Images/testcolors.gif"
-	  for image in images:
-        np_image = gif2numpy.convert(image)
-        print("type of image:", image, type(np_image))
-        cv2.imshow("np_image", np_image)
-        cv2.waitKey()
+	for image in images:
+	    np_image = gif2numpy.convert(image)
+	    print("type of image:", image, type(np_image))
+	    cv2.imshow("np_image", np_image)
+	    cv2.waitKey()
         
 There is also the class Gif inside the module which can be used to determine Gif features inside the image.
 This is just the first beta version of the module - no support on special gif features or much testing has been done yet.
+
+# TO DO:
+
+Write more convenient function wrappers to deliver the Gif features of an image.
 
 # Dependencies
 
