@@ -1,5 +1,5 @@
 # gif2numpy
-Python library to convert gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images.
+Python library to convert gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images. Works universally on Python 2 and 3.
 
 Install it with 
 
