@@ -8,6 +8,7 @@ import os
 from pkg_resources import parse_version
 from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
+from builtins import bytes
 version = "1.0"
 
 if parse_version(ks_version) < parse_version('0.7'):
@@ -356,7 +357,7 @@ class BitReader(object):
         '''Initialize the reader with a complete byte string'''
         if not isinstance(byte_string, bytes):
             raise TypeError("Requires bytelike object")
-        self._str = byte_string
+        self._str = bytes(byte_string)
         self._ptr = 0
         self._len = len(byte_string) * 8
     
@@ -532,9 +533,10 @@ def convert(gif_filename):
     return np_image
 
 if __name__ == '__main__':
-    images = "Images/audrey.gif", "Images/hopper.gif", "Images/testcolors.gif"
+    images = "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
     for image in images:
         np_image = convert(image)
         print("type of image:", image, type(np_image))
         cv2.imshow("np_image", np_image)
         cv2.waitKey()
+        cv2.destroyWindow("np_image")
