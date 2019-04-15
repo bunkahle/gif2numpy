@@ -11,7 +11,7 @@ setup(
     py_modules=['gif2numpy'],
     python_requires='>=2.7',
     url='https://github.com/bunkahle/gif2numpy',
-    long_description=open('README.txt').read(),
+    long_description=open('README.md').read(),
     platforms = ['any'],
     install_requires=['numpy', 'opencv-python', 'kaitaistruct'],
     keywords = 'GIF Converter Numpy',
