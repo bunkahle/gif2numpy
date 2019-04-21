@@ -1,5 +1,5 @@
-# gif2numpy
-Python library to convert gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images. Works universally on Python 2 and 3.
+# # gif2numpy Version 1.1
+Python library to convert single oder multiple frame gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images.
 
 Install it with 
 
@@ -17,19 +17,26 @@ You can use the library this way:
     import gif2numpy
     import cv2
     
-    images = "Images/audrey.gif", "Images/hopper.gif", "Images/testcolors.gif"
-	for image in images:
-	    np_image = gif2numpy.convert(image)
-	    print("type of image:", image, type(np_image))
-	    cv2.imshow("np_image", np_image)
-	    cv2.waitKey()
-        
+    images = "Images/Rotating_earth.gif", "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
+    for image in images:
+        frames, exts, image_specs = convert(image)
+        print()
+        print("Image:", image)
+        print()
+        print("len frames", len(frames))
+        print("len exts", len(exts))
+        print("exts:", exts)
+        print("image_specs:", image_specs)
+        for i in range(1):
+            cv2.imshow("np_image", frames[i])
+            cv2.waitKey(0)
+        cv2.destroyWindow("np_image")
+	
 There is also the class Gif inside the module which can be used to determine Gif features inside the image.
-This is just the first beta version of the module - no support on special gif features or much testing has been done yet.
-
-# TO DO:
-
-Write more convenient function wrappers to deliver the Gif features of an image.
+The general features are give in the dictionary image_specs.
+If multiple frames are saved in the gif you can retrieve them in the list of frames. The list of exts gives
+you the specifications of each frame (block_size, flags, delay_time, transparent_idx, terminator, lzw_min, 
+top, left, width, height, has_color_table, local_color_table).
 
 # Dependencies
 
