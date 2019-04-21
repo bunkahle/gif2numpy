@@ -3,15 +3,15 @@ from distutils.core import setup
 
 setup(
     name='gif2numpy',
-    version='1.0',
+    version='1.1',
     author='Andreas Bunkahle',
     author_email='abunkahle@t-online.de',
-    description='Convert gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images.',
+    description='Convert single and multiple frame gif images to numpy images or to OpenCV without PIL or pillow',
     license='MIT',
     py_modules=['gif2numpy'],
     python_requires='>=2.7',
     url='https://github.com/bunkahle/gif2numpy',
-    long_description=open('README.md').read(),
+    long_description=open('README.txt').read(),
     platforms = ['any'],
     install_requires=['numpy', 'opencv-python', 'kaitaistruct'],
     keywords = 'GIF Converter Numpy',

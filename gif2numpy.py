@@ -9,7 +9,7 @@ from pkg_resources import parse_version
 from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
 from builtins import bytes
-version = "1.0"
+version = "1.1"
 
 if parse_version(ks_version) < parse_version('0.7'):
     raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
@@ -43,6 +43,7 @@ class Gif(KaitaiStruct):
         graphic_control = 249
         comment = 254
         application = 255
+
     def __init__(self, _io, _parent=None, _root=None):
         self._io = _io
         self._parent = _parent
@@ -462,81 +463,146 @@ def lzw_decompress(raw_bytes, lzw_min):
     return idx_out
 
 def convert(gif_filename):
+    frames = []
+    frames_specs = []
+    image_specs = {}
     if not os.path.isfile(gif_filename):
         raise IOError("File does not exist")
     gifread = open(gif_filename, "rb")
     raw = gifread.read()
     gifread.close()
     # print(len(raw))
+    image_specs["Length"] = len(raw)
     data = Gif(KaitaiStream(BytesIO(raw)))
     # print("Header", data.hdr.magic, data.hdr.version)
+    image_specs["Header"] = str(data.hdr.magic) + " " + str(data.hdr.version)
     lsd = data.logical_screen_descriptor
     image_width = lsd.screen_width
     image_height = lsd.screen_height
     # print("Color table size", repr(lsd.color_table_size), "Has color table", lsd.has_color_table, "Image width", image_width, "image height", image_height, "Flags", lsd.flags, "Background color", lsd.bg_color_index, "Pixel aspect ratio", lsd.pixel_aspect_ratio)
-    # print("Length color table", len(data.global_color_table.entries))
+    image_specs["Color table size"] = lsd.color_table_size
+    image_specs["Color table existing"] = lsd.has_color_table
+    image_specs["Image Size"] = image_width, image_height
+    image_specs["Flags"] = lsd.flags
+    image_specs["Background Color"] = lsd.bg_color_index
+    image_specs["Pixel Aspect Ratio"] = lsd.pixel_aspect_ratio
+    # print("Color table length", len(data.global_color_table.entries))
+    image_specs["Color table length"] = len(data.global_color_table.entries)
     gcte = data.global_color_table.entries
     color_table = []
     for i in range(len(gcte)):
         color_table.append((gcte[i].red, gcte[i].green, gcte[i].blue))
     # print("Color table values", color_table)
+    image_specs["Color table values"] = color_table
     # print(len(data.blocks))
-    idesc = -1
+    image_specs["Data Blocks count"] = len(data.blocks)
+    frames = []
+    exts = []
     for i in range(len(data.blocks)):
-        # print(data.blocks[i].block_type)
+        # print("Block_type", data.blocks[i].block_type, "block_count:", i)
         if data.blocks[i].block_type == Gif.BlockType.local_image_descriptor:
-            idesc = i
-        try:
-            # print(data.blocks[i].body)
+            imgdata = data.blocks[i].body.image_data
+            left = data.blocks[i].body.left
+            top = data.blocks[i].body.top
+            width = data.blocks[i].body.width
+            height = data.blocks[i].body.height
+            flags = data.blocks[i].body.flags
+            has_color_table = data.blocks[i].body.has_color_table
+            if has_color_table:
+                local_color_table = data.blocks[i].body.local_color_table
+            lzw_min = imgdata.lzw_min_code_size
+            if exts == []:
+                exts.append({})
+            exts[-1]["left"] = left
+            exts[-1]["top"] = top
+            exts[-1]["width"] = width
+            exts[-1]["height"] = height
+            exts[-1]["flags1"] = flags
+            exts[-1]["has_color_table"] = has_color_table
+            if has_color_table:
+                exts[-1]["local_color_table"] = local_color_table
+            exts[-1]["lzw_min"] = lzw_min
+            all_bytes = b""
+            alle = 0
+            for j in range(len(imgdata.subblocks.entries)):
+                # print(imgdata.subblocks.entries[i].num_bytes, sep=" ", end=", ")
+                block_len = imgdata.subblocks.entries[j].num_bytes
+                alle = alle + block_len
+                # print(len(imgdata.subblocks.entries[i].bytes), repr(imgdata.subblocks.entries[i].bytes))
+                all_bytes = all_bytes + imgdata.subblocks.entries[j].bytes
+            # print("alle", alle)
+            # print(len(all_bytes))
+            # print("single frame attr at block no.:", i, left, top, width, height, flags, has_color_table, lzw_min)
+            # if has_color_table:
+            #     print(local_color_table)
+            uncompressed = lzw_decompress(all_bytes, lzw_min)
+            np_len = len(uncompressed)
+            # print("Uncompressed image: type/length, image_data[:100]", type(uncompressed), np_len, uncompressed[:100])
+            if len(color_table[0])==1:
+                np_image = np.zeros((np_len), dtype=np.uint8)
+                channels = 1
+            elif len(color_table[0])==2:
+                np_image = np.zeros((np_len*2), dtype=np.uint8)
+                channels = 2
+            elif len(color_table[0])==3:
+                np_image = np.zeros((np_len*3), dtype=np.uint8)
+                channels = 3
+            elif len(color_table[0])==4:
+                np_image = np.zeros((np_len*4), dtype=np.uint8)
+                channels = 4
+            for b, byt in enumerate(uncompressed):
+                if has_color_table:
+                    np_image[b*channels:b*channels+channels] = local_color_table[byt]
+                else:
+                    np_image[b*channels:b*channels+channels] = color_table[byt]
+            # print("image_height, image_width, channels", image_height, image_width, channels)
+            np_image = np.reshape(np_image, (height, width, channels))
+            if channels == 3:
+                np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
+            elif channels == 4:
+                np_image = cv2.cvtColor(np_image, cv2.COLOR_BGRA2RGBA)
+            # print("Count frame:", i)
+            frames.append(np_image)
+        elif data.blocks[i].block_type == Gif.BlockType.extension:
+            label = data.blocks[i].body.label
+            # print("label of extension", label)
+            if label == Gif.ExtensionLabel.graphic_control:
+                body = data.blocks[i].body.body
+                # print("body, label of extension", body, label)
+                block_size = data.blocks[i].body.body.block_size
+                flags = data.blocks[i].body.body.flags
+                delay_time = data.blocks[i].body.body.delay_time
+                transparent_idx = data.blocks[i].body.body.transparent_idx
+                terminator = data.blocks[i].body.body.terminator
+                frame_count = len(frames)
+                ext_dict = {"block_size": block_size, "flags": flags, "delay_time": delay_time, "transparent_idx": transparent_idx, "terminator": terminator}
+                exts.append(ext_dict)
+                # print(i, "block_size, flags, delay_time, transparent_idx, terminator", block_size, flags, delay_time, transparent_idx, terminator)
+            elif label == Gif.ExtensionLabel.application:
+                application_id = data.blocks[i].body.body.application_id
+                subblocks = data.blocks[i].body.body.subblocks
+                image_specs["application_id"] = application_id.bytes 
+                for k in range(len(subblocks)):
+                    image_specs["application_subblocks"+str(k)] = subblocks[k].bytes
+            elif label == Gif.ExtensionLabel.comment:
+                subblocks = data.blocks[i].body.body
+                image_specs["comment"] = b"".join([b.bytes for b in subblocks.entries])
+        else: # data.blocks[i].block_type == Gif.BlockType.end_of_file
             pass
-        except:
-            pass
-    # print("ImageData block in idesc", idesc)
-    imgdata = data.blocks[idesc].body.image_data
-    lzw_min = imgdata.lzw_min_code_size
-    # print(type(imgdata), "lzw_min", lzw_min , "Count of subblocks:", len(imgdata.subblocks.entries))
-    alle = 0
-    all_bytes = b""
-    for i in range(len(imgdata.subblocks.entries)):
-        # print(imgdata.subblocks.entries[i].num_bytes, sep=" ", end=", ")
-        block_len = imgdata.subblocks.entries[i].num_bytes
-        alle = alle + block_len
-        # print(len(imgdata.subblocks.entries[i].bytes), repr(imgdata.subblocks.entries[i].bytes))
-        all_bytes = all_bytes + imgdata.subblocks.entries[i].bytes
-    # print("alle", alle)
-    # print(len(all_bytes))
-    uncompressed = lzw_decompress(all_bytes, lzw_min)
-    np_len = len(uncompressed)
-    # print(type(uncompressed), np_len, uncompressed[:100])
-    if len(color_table[0])==1:
-        np_image = np.zeros((np_len), dtype=np.uint8)
-        channels = 1
-    elif len(color_table[0])==2:
-        np_image = np.zeros((np_len*2), dtype=np.uint8)
-        channels = 2
-    elif len(color_table[0])==3:
-        np_image = np.zeros((np_len*3), dtype=np.uint8)
-        channels = 3
-    elif len(color_table[0])==4:
-        np_image = np.zeros((np_len*4), dtype=np.uint8)
-        channels = 4
-
-    for b, byt in enumerate(uncompressed):
-        np_image[b*channels:b*channels+channels] = color_table[byt]
-
-    np_image = np.reshape(np_image, (image_height, image_width, channels))
-    # print("Channels detected", channels)
-    if channels == 3:
-        np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
-    elif channels == 4:
-        np_image = cv2.cvtColor(np_image, cv2.COLOR_BGRA2RGBA)
-    return np_image
+    return frames, exts, image_specs
 
 if __name__ == '__main__':
-    images = "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
+    images = "Images/Rotating_earth.gif", "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
     for image in images:
-        np_image = convert(image)
-        print("type of image:", image, type(np_image))
-        cv2.imshow("np_image", np_image)
-        cv2.waitKey()
+        frames, exts, image_specs = convert(image)
+        print()
+        print("Image:", image)
+        print()
+        print("len frames", len(frames))
+        print("len exts", len(exts))
+        print("exts:", exts)
+        print("image_specs:", image_specs)
+        for i in range(1):
+            cv2.imshow("np_image", frames[i])
+            cv2.waitKey(0)
         cv2.destroyWindow("np_image")
