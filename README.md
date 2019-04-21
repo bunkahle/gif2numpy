@@ -19,7 +19,7 @@ You can use the library this way:
     
     images = "Images/Rotating_earth.gif", "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
     for image in images:
-        frames, exts, image_specs = convert(image)
+        frames, exts, image_specs = gif2numpy.convert(image)
         print()
         print("Image:", image)
         print()
