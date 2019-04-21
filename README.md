@@ -33,7 +33,7 @@ You can use the library this way:
         cv2.destroyWindow("np_image")
 	
 There is also the class Gif inside the module which can be used to determine Gif features inside the image.
-The general features are give in the dictionary image_specs.
+The general features are given in the dictionary image_specs.
 If multiple frames are saved in the gif you can retrieve them in the list of frames. The list of exts gives
 you the specifications of each frame (block_size, flags, delay_time, transparent_idx, terminator, lzw_min, 
 top, left, width, height, has_color_table, local_color_table).
