@@ -20,7 +20,7 @@ setup(
     #   3 - Alpha
     #   4 - Beta
     #   5 - Production/Stable
-    'Development Status ::  5 - Production/Stable',
+    'Development Status :: 5 - Production/Stable',
     'License :: OSI Approved :: MIT License',
     # Specify the Python versions you support here. In particular, ensure
     # that you indicate whether you support Python 2, Python 3 or both.
