@@ -9,7 +9,7 @@ from pkg_resources import parse_version
 from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
 from builtins import bytes
-version = "1.1"
+version = "1.2"
 
 if parse_version(ks_version) < parse_version('0.7'):
     raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
@@ -462,6 +462,35 @@ def lzw_decompress(raw_bytes, lzw_min):
         code_last = code_id
     return idx_out
 
+def paste(mother, child, x, y):
+    "Pastes the numpy image child into the numpy image mother at position (x, y)"
+    size = mother.shape
+    csize = child.shape
+    if y+csize[0]<0 or x+csize[1]<0 or y>size[0] or x>size[1]: return mother
+    sel = [int(y), int(x), csize[0], csize[1]]
+    csel = [0, 0, csize[0], csize[1]]
+    if y<0:
+        sel[0] = 0
+        sel[2] = csel[2] + y
+        csel[0] = -y
+    elif y+sel[2]>=size[0]:
+        sel[2] = int(size[0])
+        csel[2] = size[0]-y
+    else:
+        sel[2] = sel[0] + sel[2]
+    if x<0:
+        sel[1] = 0
+        sel[3] = csel[3] + x
+        csel[1] = -x
+    elif x+sel[3]>=size[1]:
+        sel[3] = int(size[1])
+        csel[3] = size[1]-x
+    else:
+        sel[3] = sel[1] + sel[3]
+    childpart = child[csel[0]:csel[2], csel[1]:csel[3]]
+    mother[sel[0]:sel[2], sel[1]:sel[3]] = childpart
+    return mother
+
 def convert(gif_filename):
     frames = []
     frames_specs = []
@@ -495,9 +524,10 @@ def convert(gif_filename):
     # print("Color table values", color_table)
     image_specs["Color table values"] = color_table
     # print(len(data.blocks))
-    image_specs["Data Blocks count"] = len(data.blocks)
+    image_specs["Data Blocks count"]  = len(data.blocks)
     frames = []
     exts = []
+    first_frame = True
     for i in range(len(data.blocks)):
         # print("Block_type", data.blocks[i].block_type, "block_count:", i)
         if data.blocks[i].block_type == Gif.BlockType.local_image_descriptor:
@@ -557,11 +587,33 @@ def convert(gif_filename):
                     np_image[b*channels:b*channels+channels] = color_table[byt]
             # print("image_height, image_width, channels", image_height, image_width, channels)
             np_image = np.reshape(np_image, (height, width, channels))
+            # print(np_image.shape, np_image[329-height,329-width,0])
             if channels == 3:
                 np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
             elif channels == 4:
                 np_image = cv2.cvtColor(np_image, cv2.COLOR_BGRA2RGBA)
-            # print("Count frame:", i)
+            if first_frame:
+                first_frame = False
+                frame1 = np_image.copy()
+                orig_shape = frame1.shape
+            else:
+                old_frame = frames[-1].copy()
+                if has_color_table:
+                    transp_idx = local_color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                else:
+                    transp_idx = color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                transp_idx = np.array(transp_idx)
+                # cv2.imshow("old_frame", old_frame)
+                new_frame = paste(frame1.copy(), np_image, exts[-1]['left'], exts[-1]['top'])
+                # cv2.imshow("new_frame", new_frame)
+                f = np.all((new_frame==transp_idx), axis=-1)
+                flattened_image = np.reshape(new_frame, (new_frame.shape[0]*new_frame.shape[1], channels))
+                old_flattened_image = np.reshape(old_frame, (old_frame.shape[0]*old_frame.shape[1], channels))
+                f = np.reshape(f, (old_frame.shape[0]*old_frame.shape[1], 1))
+                np_image = np.array([old_flattened_image[i] if j else flattened_image[i] for i, j in enumerate(f)])
+                np_image = np.reshape(np_image, (old_frame.shape[0], old_frame.shape[1], channels))
+                # cv2.imshow("last_frame", np_image)
+                # cv2.waitKey()
             frames.append(np_image)
         elif data.blocks[i].block_type == Gif.BlockType.extension:
             label = data.blocks[i].body.label
@@ -602,7 +654,10 @@ if __name__ == '__main__':
         print("len exts", len(exts))
         print("exts:", exts)
         print("image_specs:", image_specs)
-        for i in range(1):
+        for i in range(len(frames)):
             cv2.imshow("np_image", frames[i])
-            cv2.waitKey(0)
-        cv2.destroyWindow("np_image")
+            print(exts[i])
+            k = cv2.waitKey(0) 
+            if k == 27: 
+                break
+            cv2.destroyWindow("np_image")
