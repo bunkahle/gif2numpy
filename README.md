@@ -1,4 +1,4 @@
-# gif2numpy Version 1.1
+# gif2numpy Version 1.2
 Python library to convert single oder multiple frame gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images.
 
 Install it with 
@@ -27,9 +27,11 @@ You can use the library this way:
         print("len exts", len(exts))
         print("exts:", exts)
         print("image_specs:", image_specs)
-        for i in range(1):
+        for i in range(len(frames)):
             cv2.imshow("np_image", frames[i])
-            cv2.waitKey(0)
+            k = cv2.waitKey(0)
+	    if k == 27:
+	        break
         cv2.destroyWindow("np_image")
 	
 There is also the class Gif inside the module which can be used to determine Gif features inside the image.
