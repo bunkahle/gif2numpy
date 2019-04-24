@@ -30,8 +30,8 @@ You can use the library this way:
         for i in range(len(frames)):
             cv2.imshow("np_image", frames[i])
             k = cv2.waitKey(0)
-	    if k == 27:
-	        break
+            if k == 27:
+                break
         cv2.destroyWindow("np_image")
 	
 There is also the class Gif inside the module which can be used to determine Gif features inside the image.
