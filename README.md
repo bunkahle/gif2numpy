@@ -65,8 +65,11 @@ By default this module was designed for the connection with cv2 which has the BG
 # Version history
 
 1.3: Additional flag for BGR2RGB conversion, by default this flag is set and a BGR2RGB color conversion takes place, better time optimization of color table mapping
+
 1.2: Bug fix for multiple frame gif images, pixel error in frames fixed
+
 1.1: single frame and multiple frame gif images are now supported
+
 1.0: first release just for still single images
 
 # Dependencies
