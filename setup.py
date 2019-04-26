@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='gif2numpy',
-    version='1.2',
+    version='1.3',
     author='Andreas Bunkahle',
     author_email='abunkahle@t-online.de',
     description='Convert single and multiple frame gif images to numpy images or to OpenCV without PIL or pillow',
@@ -13,7 +13,7 @@ setup(
     url='https://github.com/bunkahle/gif2numpy',
     long_description=open('README.txt').read(),
     platforms = ['any'],
-    install_requires=['numpy', 'opencv-python', 'kaitaistruct'],
+    install_requires=['numpy', 'kaitaistruct'],
     keywords = 'GIF Converter Numpy',
     classifiers=[
     # How mature is this project? Common values are

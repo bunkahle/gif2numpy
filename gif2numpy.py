@@ -1,15 +1,23 @@
-#!/usr/bin/env python
+ #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
 import numpy as np
-import cv2
 import os
 from pkg_resources import parse_version
 from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
 from builtins import bytes
-version = "1.2"
+version = "1.3"
+
+"""
+Version history:
+1.3: Additional flag for BGR2RGB conversion, by default this flag is set and a BGR2RGB color conversion 
+     takes place, better time optimization of color table mapping
+1.2: Bug fix for multiple frame gif images, pixel error in frames fixed
+1.1: single frame and multiple frame gif images are now supported
+1.0: first release just for still single images
+"""
 
 if parse_version(ks_version) < parse_version('0.7'):
     raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
@@ -409,6 +417,18 @@ class BitReader(object):
         self._ptr = (byte_end << 3) | end
         return bit_str
 
+def cvtColor(image):
+    "converts color from BGR to RGB and BGRA to RGBA and vice versa"
+    if len(image.shape)>=3:
+        np8_image = image.astype(np.uint8)
+        if image.shape[2] == 3:
+            b, g, r = np.dsplit(np8_image, np8_image.shape[-1])
+            return np.dstack([r, g, b])
+        elif image.shape[2] == 4:
+            b, g, r, a = np.dsplit(np8_image, np8_image.shape[-1])
+            return np.dstack([r, g, b, a])
+    return image
+
 #================================================================
 # LZW compression algorithms
 #================================================================
@@ -491,12 +511,14 @@ def paste(mother, child, x, y):
     mother[sel[0]:sel[2], sel[1]:sel[3]] = childpart
     return mother
 
-def convert(gif_filename):
+def convert(gif_filename, BGR2RGB=True):
+    """converts an image specified by its filename gif_filename to a numpy image
+       if BGR2RGB is True (default) there will also be a color conversion from BGR to RGB"""
+    if not os.path.isfile(gif_filename):
+        raise IOError("File does not exist")
     frames = []
     frames_specs = []
     image_specs = {}
-    if not os.path.isfile(gif_filename):
-        raise IOError("File does not exist")
     gifread = open(gif_filename, "rb")
     raw = gifread.read()
     gifread.close()
@@ -504,7 +526,7 @@ def convert(gif_filename):
     image_specs["Length"] = len(raw)
     data = Gif(KaitaiStream(BytesIO(raw)))
     # print("Header", data.hdr.magic, data.hdr.version)
-    image_specs["Header"] = str(data.hdr.magic) + " " + str(data.hdr.version)
+    image_specs["Header"] = str(data.hdr.magic).replace("b'", "").strip("'") + " " + str(data.hdr.version)
     lsd = data.logical_screen_descriptor
     image_width = lsd.screen_width
     image_height = lsd.screen_height
@@ -580,28 +602,35 @@ def convert(gif_filename):
             elif len(color_table[0])==4:
                 np_image = np.zeros((np_len*4), dtype=np.uint8)
                 channels = 4
-            for b, byt in enumerate(uncompressed):
-                if has_color_table:
-                    np_image[b*channels:b*channels+channels] = local_color_table[byt]
-                else:
-                    np_image[b*channels:b*channels+channels] = color_table[byt]
+            if has_color_table:
+                np_image = np.array([local_color_table[byt] for byt in uncompressed])
+            else:
+                np_image = np.array([color_table[byt] for byt in uncompressed])
             # print("image_height, image_width, channels", image_height, image_width, channels)
             np_image = np.reshape(np_image, (height, width, channels))
             # print(np_image.shape, np_image[329-height,329-width,0])
-            if channels == 3:
-                np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
-            elif channels == 4:
-                np_image = cv2.cvtColor(np_image, cv2.COLOR_BGRA2RGBA)
+            if BGR2RGB:
+                if channels == 3 or channels == 4:
+                    np_image = cvtColor(np_image)
+                else:
+                    np_image = np_image.astype(np.uint8)    
+            else:
+                np_image = np_image.astype(np.uint8)
             if first_frame:
                 first_frame = False
                 frame1 = np_image.copy()
-                orig_shape = frame1.shape
             else:
                 old_frame = frames[-1].copy()
                 if has_color_table:
-                    transp_idx = local_color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                    if BGR2RGB:
+                        transp_idx = local_color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                    else:
+                        transp_idx = local_color_table[exts[-1]['transparent_idx']] # RGB -> RGB
                 else:
-                    transp_idx = color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                    if BGR2RGB:
+                        transp_idx = color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                    else:
+                        transp_idx = color_table[exts[-1]['transparent_idx']] # RGB -> RGB
                 transp_idx = np.array(transp_idx)
                 # cv2.imshow("old_frame", old_frame)
                 new_frame = paste(frame1.copy(), np_image, exts[-1]['left'], exts[-1]['top'])
@@ -644,7 +673,8 @@ def convert(gif_filename):
     return frames, exts, image_specs
 
 if __name__ == '__main__':
-    images = "Images/Rotating_earth.gif", "Images/hopper.gif", "Images/audrey.gif", "Images/testcolors.gif"
+    import cv2
+    images = "Images/hopper.gif", "Images/audrey.gif", "Images/Rotating_earth.gif", "Images/testcolors.gif"
     for image in images:
         frames, exts, image_specs = convert(image)
         print()
