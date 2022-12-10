@@ -1,4 +1,4 @@
-# gif2numpy Version 1.3
+# gif2numpy Version 1.4.0
 Python library to convert single oder multiple frame gif images to numpy images or to OpenCV without PIL or pillow. OpenCV does not support gif images.
 
 Install it with 
@@ -63,6 +63,8 @@ By default this module was designed for the connection with cv2 which has the BG
         cv2.destroyWindow("np_image")
 
 # Version history
+
+1.4.0: Fix local color table bug && clean some code. (modifed base origin repo and update by alingse)
 
 1.3: Additional flag for BGR2RGB conversion, by default this flag is set and a BGR2RGB color conversion takes place, better time optimization of color table mapping
 
