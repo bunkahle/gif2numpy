@@ -7,7 +7,8 @@ import os
 from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
 from builtins import bytes
-version = "1.3"
+
+version = "0.1.4"
 
 """
 Version history:
@@ -534,14 +535,20 @@ def convert(gif_filename, BGR2RGB=True):
     image_specs["Flags"] = lsd.flags
     image_specs["Background Color"] = lsd.bg_color_index
     image_specs["Pixel Aspect Ratio"] = lsd.pixel_aspect_ratio
+
+    # make global color table
     # print("Color table length", len(data.global_color_table.entries))
-    image_specs["Color table length"] = len(data.global_color_table.entries)
-    gcte = data.global_color_table.entries
-    color_table = []
-    for i in range(len(gcte)):
-        color_table.append((gcte[i].red, gcte[i].green, gcte[i].blue))
-    # print("Color table values", color_table)
-    image_specs["Color table values"] = color_table
+    if lsd.has_color_table:
+        image_specs["Color table length"] = len(data.global_color_table.entries)
+        gcte = data.global_color_table.entries
+        color_table = []
+        for i in range(len(gcte)):
+            color_table.append((gcte[i].red, gcte[i].green, gcte[i].blue))
+        # print("Color table values", color_table)
+        image_specs["Color table values"] = color_table
+    else:
+        color_table = []
+    
     # print(len(data.blocks))
     image_specs["Data Blocks count"]  = len(data.blocks)
     frames = []
@@ -587,22 +594,32 @@ def convert(gif_filename, BGR2RGB=True):
             uncompressed = lzw_decompress(all_bytes, lzw_min)
             np_len = len(uncompressed)
             # print("Uncompressed image: type/length, image_data[:100]", type(uncompressed), np_len, uncompressed[:100])
-            if len(color_table[0])==1:
-                np_image = np.zeros((np_len), dtype=np.uint8)
-                channels = 1
-            elif len(color_table[0])==2:
-                np_image = np.zeros((np_len*2), dtype=np.uint8)
-                channels = 2
-            elif len(color_table[0])==3:
-                np_image = np.zeros((np_len*3), dtype=np.uint8)
-                channels = 3
-            elif len(color_table[0])==4:
-                np_image = np.zeros((np_len*4), dtype=np.uint8)
-                channels = 4
-            if has_color_table:
-                np_image = np.array([local_color_table[byt] for byt in uncompressed])
-            else:
+            # global color table
+            if color_table:
+                if len(color_table[0])==1:
+                    np_image = np.zeros((np_len), dtype=np.uint8)
+                    channels = 1
+                elif len(color_table[0])==2:
+                    np_image = np.zeros((np_len*2), dtype=np.uint8)
+                    channels = 2
+                elif len(color_table[0])==3:
+                    np_image = np.zeros((np_len*3), dtype=np.uint8)
+                    channels = 3
+                elif len(color_table[0])==4:
+                    np_image = np.zeros((np_len*4), dtype=np.uint8)
+                    channels = 4
+
                 np_image = np.array([color_table[byt] for byt in uncompressed])
+
+            # make local color table
+            if has_color_table:
+                local_color_table_values = []
+                for i in range(len(local_color_table.entries)):
+                    lcte = local_color_table.entries[i]
+                    local_color_table_values.append((lcte.red, lcte.green, lcte.blue))
+                np_image = np.array([local_color_table_values[byt] for byt in uncompressed])
+                channels = 3
+
             # print("image_height, image_width, channels", image_height, image_width, channels)
             np_image = np.reshape(np_image, (height, width, channels))
             # print(np_image.shape, np_image[329-height,329-width,0])
@@ -620,9 +637,9 @@ def convert(gif_filename, BGR2RGB=True):
                 old_frame = frames[-1].copy()
                 if has_color_table:
                     if BGR2RGB:
-                        transp_idx = local_color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
+                        transp_idx = local_color_table_values[exts[-1]['transparent_idx']][::-1] # RGB -> BGR
                     else:
-                        transp_idx = local_color_table[exts[-1]['transparent_idx']] # RGB -> RGB
+                        transp_idx = local_color_table_values[exts[-1]['transparent_idx']] # RGB -> RGB
                 else:
                     if BGR2RGB:
                         transp_idx = color_table[exts[-1]['transparent_idx']][::-1] # RGB -> BGR

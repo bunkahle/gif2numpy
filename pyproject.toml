@@ -7,7 +7,7 @@ dev = [
 
 [project]
 name = "gif2numpy"
-version = "0.1.0"
+version = "0.1.4"
 description = ""
 authors = [
     {name = "Andreas Bunkahle", email = "abunkahle@t-online.de"},
