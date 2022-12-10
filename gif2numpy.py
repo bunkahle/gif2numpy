@@ -4,8 +4,7 @@
 from __future__ import print_function
 import numpy as np
 import os
-from pkg_resources import parse_version
-from kaitaistruct import __version__ as ks_version, KaitaiStruct, KaitaiStream, BytesIO
+from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
 from enum import Enum
 from builtins import bytes
 version = "1.3"
@@ -19,8 +18,6 @@ Version history:
 1.0: first release just for still single images
 """
 
-if parse_version(ks_version) < parse_version('0.7'):
-    raise Exception("Incompatible Kaitai Struct Python API: 0.7 or later is required, but you have %s" % (ks_version))
 
 class Gif(KaitaiStruct):
     """GIF (Graphics Interchange Format) is an image file format, developed
